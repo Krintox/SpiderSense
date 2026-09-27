@@ -8,3 +8,8 @@ node_modules/
 
 # Playwright MCP screenshots/console logs left over from manual verification
 .playwright-mcp/
+
+# Internal working/status docs, not meant for the public repo (README.md and agents/**/AGENTS.md stay)
+ARCHITECTURE.md
+TODO_DASHBOARD.md
+completion proof.md
