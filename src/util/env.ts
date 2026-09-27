@@ -19,11 +19,16 @@ export function parseEnvFile(path: string): Record<string, string> {
 }
 
 let loaded = false;
-/** Loads ../.env (project) into process.env without overriding real environment variables. */
+/**
+ * Loads env files into process.env without overriding real environment variables. Checked in priority order
+ * (first match for a given key wins): this project's own `.env.local`, then its `.env`, then a parent
+ * folder's `.env` (a convenience for this specific workspace; harmless/absent for a standalone clone).
+ * `.env.local` is the recommended file for a standalone clone of just this folder — see `.env.example`.
+ */
 export function loadEnv(): void {
   if (loaded) return;
   loaded = true;
-  for (const p of [resolve(ROOT, ".env"), resolve(ROOT, "..", ".env")]) {
+  for (const p of [resolve(ROOT, ".env.local"), resolve(ROOT, ".env"), resolve(ROOT, "..", ".env")]) {
     for (const [k, v] of Object.entries(parseEnvFile(p))) if (process.env[k] === undefined) process.env[k] = v;
   }
 }

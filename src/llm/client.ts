@@ -1,13 +1,17 @@
 /**
- * Provider-agnostic chat client for free-tier LLMs.
+ * Provider-agnostic chat client. Default path: FreeLLMAPI's Vercel gateway first (if healthy), else direct
+ * free-tier providers using the keys in the free_llm-check .env file (see ROLES / PROVIDERS below).
  *
- * Order of preference per role (see ROLES): the hosted FreeLLMAPI gateway first (if it has been healthy),
- * then direct OpenAI-compatible providers using the keys in the free_llm-check .env file.
- * Every provider is plain `POST {base}/chat/completions`, so replacing all of this with the
- * hackathon's credits is one entry in ROLES / PROVIDERS.
+ * On top of that default path, 5 general-purpose API providers are supported (OpenAI, Anthropic, OpenRouter,
+ * Together AI, Fireworks AI — see GENERAL_PROVIDERS) purely by presence of their env key: set e.g.
+ * OPENAI_API_KEY and every chat() call uses OpenAI directly instead, no code change needed. With NONE of
+ * those 5 keys set, behavior is unchanged — FreeLLMAPI Vercel remains the default, exactly as before.
+ * Only one of the 5 is used per call, checked in the order GENERAL_PROVIDERS lists them; if that provider's
+ * request fails, the call falls through to the default free-tier path below rather than failing outright.
  *
  * Tool calling is deliberately NOT native: the FreeLLMAPI gateway drops `tools`, and free models differ.
- * The agent uses a JSON action protocol (see agent/agent.ts), which behaves the same everywhere.
+ * The agent uses a JSON action protocol (see agent/agent.ts), which behaves the same everywhere — including
+ * for the 5 general providers, so switching providers never requires touching the agent.
  */
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -46,6 +50,32 @@ export const ROLES: Record<RoleName, Array<[string, string]>> = {
     ["mistral", "codestral-latest"],
   ],
 };
+
+/**
+ * 5 general-purpose API providers, opted into purely by setting their env key — no ROLES/PROVIDERS change
+ * needed. Checked in this order; the first one whose `envKey` is set wins for every call. `model` defaults to
+ * a fast, inexpensive model for that provider, overridable with the matching `${id.toUpperCase()}_MODEL` var
+ * (e.g. `OPENAI_MODEL=gpt-4.1-mini`). `kind` picks the request/response shape: "openai" is the plain
+ * `POST {base}/chat/completions` shape every free-tier provider above also uses; "anthropic" is Anthropic's
+ * own Messages API shape (a separate system field, no "system" role in the messages array, a different
+ * response envelope) via `callAnthropic` below.
+ */
+interface GeneralProviderDef { id: string; envKey: string; kind: "openai" | "anthropic"; base: string; model: string }
+export const GENERAL_PROVIDERS: GeneralProviderDef[] = [
+  { id: "openai", envKey: "OPENAI_API_KEY", kind: "openai", base: "https://api.openai.com/v1", model: "gpt-4.1-mini" },
+  { id: "anthropic", envKey: "ANTHROPIC_API_KEY", kind: "anthropic", base: "https://api.anthropic.com/v1", model: "claude-haiku-4-5-20251001" },
+  { id: "openrouter_general", envKey: "OPENROUTER_API_KEY", kind: "openai", base: "https://openrouter.ai/api/v1", model: "openai/gpt-4o-mini" },
+  { id: "together", envKey: "TOGETHER_API_KEY", kind: "openai", base: "https://api.together.xyz/v1", model: "meta-llama/Llama-3.3-70B-Instruct-Turbo" },
+  { id: "fireworks", envKey: "FIREWORKS_API_KEY", kind: "openai", base: "https://api.fireworks.ai/inference/v1", model: "accounts/fireworks/models/llama-v3p1-70b-instruct" },
+];
+/** The general provider to use this call, if any of the 5 env keys is set; null keeps the default FreeLLMAPI path. */
+function pickGeneralProvider(): { def: GeneralProviderDef; key: string; model: string } | null {
+  for (const def of GENERAL_PROVIDERS) {
+    const key = process.env[def.envKey];
+    if (key) return { def, key, model: process.env[`${def.id.toUpperCase()}_MODEL`] ?? def.model };
+  }
+  return null;
+}
 
 interface KeyState { value: string; coolUntil: number; fails: number }
 const keyPool = new Map<string, KeyState[]>();
@@ -115,6 +145,31 @@ function extractContent(text: string): string | null {
   } catch { return null; }
 }
 
+/** Anthropic's Messages API: a different endpoint, a separate `system` field (not a "system"-role message),
+ *  and a different response envelope (`content: [{type:"text", text}]`, not `choices[0].message.content`). */
+async function callAnthropic(base: string, key: string, model: string, messages: ChatMessage[], o: ChatOptions, timeoutMs: number) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
+  try {
+    const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
+    const rest = messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role, content: m.content }));
+    const res = await fetch(`${base}/messages`, {
+      method: "POST", signal: ctl.signal,
+      headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+      body: JSON.stringify({ model, system: system || undefined, messages: rest, max_tokens: o.maxTokens ?? 1400, temperature: o.temperature ?? 0.2 }),
+    });
+    const text = await res.text();
+    return { status: res.status, text, retryAfter: Number(res.headers.get("retry-after") ?? 0) };
+  } finally { clearTimeout(timer); }
+}
+function extractAnthropicContent(text: string): string | null {
+  try {
+    const d = JSON.parse(text);
+    const c = Array.isArray(d?.content) ? d.content.map((p: any) => p?.text ?? "").join("") : null;
+    return c && c.trim().length ? c.trim() : null;
+  } catch { return null; }
+}
+
 export async function chat(messages: ChatMessage[], o: ChatOptions = {}): Promise<ChatResult> {
   loadEnv();
   const role = o.role ?? "agent";
@@ -126,6 +181,25 @@ export async function chat(messages: ChatMessage[], o: ChatOptions = {}): Promis
 
   const errors: string[] = [];
   const started = Date.now();
+
+  // 0) A general-purpose provider (OpenAI, Anthropic, OpenRouter, Together, Fireworks) wins outright if its
+  // env key is set — no config beyond setting that one variable. Falls through to the default path on failure.
+  const gp = pickGeneralProvider();
+  if (gp) {
+    const t0 = Date.now();
+    try {
+      const r = gp.def.kind === "anthropic"
+        ? await callAnthropic(gp.def.base, gp.key, gp.model, messages, o, 45000)
+        : await callOpenAI(gp.def.base, gp.key, gp.model, messages, o, 45000);
+      if (r.status === 200) {
+        const c = gp.def.kind === "anthropic" ? extractAnthropicContent(r.text) : extractContent(r.text);
+        if (c) return save({ content: c, provider: gp.def.id, model: gp.model, latencyMs: Date.now() - t0, cached: false });
+        errors.push(`${gp.def.id} empty`);
+      } else errors.push(`${gp.def.id} ${r.status}`);
+    } catch (e: any) { errors.push(`${gp.def.id} ${e?.name ?? e}`); }
+    // A general provider was configured but failed this call — fall through to the default FreeLLMAPI path
+    // below rather than throwing, so a bad/expired paid key degrades gracefully instead of breaking the run.
+  }
 
   const tryGateway = async (): Promise<ChatResult | null> => {
     if (process.env.FREELLM_GATEWAY_KEY && gwMode !== "off" && Date.now() > gatewayDownUntil) {

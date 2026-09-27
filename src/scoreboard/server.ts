@@ -86,7 +86,7 @@ const docker = async () => (dockerCache ??= await dockerSystems(1));
 createServer(async (req, res) => {
   const u = new URL(req.url ?? "/", "http://x");
   try {
-    if (u.pathname === "/") { res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" }); return res.end(readFileSync(resolve(ROOT, "src", "scoreboard", "public", "index.html"))); }
+    if (u.pathname === "/") { res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" }); return res.end(readFileSync(resolve(ROOT, "src", "scoreboard", "public", "index.html"))); }
     if (u.pathname === "/api/runs") {
       const files = existsSync(RES) ? readdirSync(RES).filter((f) => /^eval-.*\.json$/.test(f)) : [];
       const out = files.map((f) => { const d = readJson(f); return { file: f, label: d.label, createdAt: d.createdAt, seed: d.seed, n: d.n, ruleset: d.ruleset, backend: d.backend ?? "memory", judge: d.judge, policyIds: d.policyIds, summaries: d.summaries }; });
