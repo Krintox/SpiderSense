@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SpiderSense</title>
+<style>
+:root{
+  --bg:#F3F5F7; --panel:#FFFFFF; --sunk:#E9EDF0; --ink:#121A22; --ink2:#3B4753; --mute:#68757F; --line:#D6DCE1;
+  --accent:#0E6B6B; --allow:#1B7A4B; --allow-bg:#DDF1E6; --deny:#B3261E; --deny-bg:#F8DEDB; --warn:#946000; --warn-bg:#F5EAD0;
+  --mono: ui-monospace, "IBM Plex Mono", Consolas, monospace; --sans: "IBM Plex Sans", system-ui, "Segoe UI", sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0E1419;--panel:#161E26;--sunk:#1D2731;--ink:#E4EAF0;--ink2:#B8C3CD;--mute:#8C99A5;--line:#2A3642;--accent:#4FBDB6;--allow:#5BC48C;--allow-bg:#15301F;--deny:#F07A70;--deny-bg:#3A1917;--warn:#E0A94A;--warn-bg:#33280F;color-scheme:dark}}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans)}
+header{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px 22px;align-items:baseline}
+h1{margin:0;font-size:22px;letter-spacing:-.01em} h2{margin:0 0 10px;font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute)}
+.sub{color:var(--mute)} main{max-width:1280px;margin:0 auto;padding:16px 20px 60px;display:grid;gap:18px}
+section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button,select{font:inherit;padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);cursor:pointer}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)} button.ok{border-color:var(--allow);color:var(--allow)} button.no{border-color:var(--deny);color:var(--deny)} button:disabled{opacity:.5;cursor:default}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:14px} @media (max-width:900px){.duo{grid-template-columns:1fr}}
+.pane{border:1px solid var(--line);border-radius:8px;min-height:120px;display:flex;flex-direction:column}
+.pane>h3{margin:0;padding:8px 12px;font-size:13px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px}
+.log{padding:10px 12px;display:grid;gap:8px;max-height:560px;overflow:auto}
+.msg{padding:6px 10px;border-radius:8px;max-width:92%;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.caller{background:var(--sunk)} .msg.agent{background:var(--accent);color:#fff;justify-self:end}
+.tool{font:12px var(--mono);color:var(--mute);overflow-wrap:anywhere} .tool.blocked{color:var(--deny)}
+.verdict{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--sunk)}
+.verdict.deny{border-color:var(--deny);background:var(--deny-bg)} .verdict.allow{border-color:var(--allow);background:var(--allow-bg)} .verdict.instruct{border-color:var(--warn);background:var(--warn-bg)}
+.verdict b{font:600 12px var(--mono);letter-spacing:.04em} .verdict .m{margin-top:4px;font-size:12.5px;color:var(--ink2)}
+.q{display:grid;grid-template-columns:150px 1fr 40px;gap:8px;align-items:center;font:11.5px var(--mono);margin-top:3px}
+.q i{display:block;height:6px;background:var(--line);border-radius:3px;position:relative} .q i u{position:absolute;left:0;top:0;bottom:0;background:var(--accent);border-radius:3px}
+.chip{display:inline-block;padding:1px 8px;border-radius:99px;font:600 11.5px var(--mono)} .chip.bad{background:var(--deny-bg);color:var(--deny)} .chip.good{background:var(--allow-bg);color:var(--allow)} .chip.warn{background:var(--warn-bg);color:var(--warn)}
+table{border-collapse:collapse;width:100%} th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute)} td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+.rate{display:flex;align-items:center;gap:8px}.rate .bar{position:relative;flex:0 0 110px;height:8px;background:var(--sunk);border-radius:4px}
+.rate .bar u{position:absolute;top:-2px;bottom:-2px;background:var(--accent);opacity:.35;border-radius:3px} .rate .bar s{position:absolute;top:-3px;bottom:-3px;width:3px;background:var(--accent);border-radius:2px}
+.rate.bad .bar u{background:var(--deny)} .rate.bad .bar s{background:var(--deny)}
+.tableWrap{overflow-x:auto} .scroll{max-height:380px;overflow:auto}
+.pill{font:11px var(--mono);padding:1px 6px;border-radius:4px;background:var(--sunk);color:var(--ink2)} .pill.promoted{background:var(--warn-bg);color:var(--warn)} .pill.up{background:var(--allow-bg);color:var(--allow)} .pill.down{background:var(--deny-bg);color:var(--deny)}
+code{font-family:var(--mono);font-size:12px} .fine{color:var(--mute);font-size:12px}
+.evid{font:12px var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;background:var(--sunk);border-radius:6px;padding:6px 8px;margin-top:4px}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <h1>SpiderSense</h1>
+  <span class="sub">Account-recovery control plane for AI service-desk agents</span>
+</header>
+<main>
+  <section id="hero">
+    <h2>Live call: same caller, same agent</h2>
+    <div class="row">
+      <select id="scenario" aria-label="Scenario"><option value="attack">Attack: executive assistant impostor</option><option value="legit">Legitimate: lost phone</option></select><span class="fine" id="scenario-src"></span>
+      <label class="row" style="gap:6px"><input type="checkbox" id="real"> Real systems (Keycloak + Zammad)</label>
+      <label class="row" style="gap:6px">Right pane <select id="rmode"><option value="on">enforce</option><option value="observe">observe only</option></select></label>
+      <button class="primary" id="run">Run both</button>
+      <span class="fine" id="heroNote">Replies for the recorded take are replayed from cache when available.</span>
+    </div>
+    <div class="duo" style="margin-top:12px">
+      <div class="pane"><h3>Guard OFF <span id="s-off"></span></h3><div class="log" id="log-off"></div></div>
+      <div class="pane"><h3><span id="rtitle">Guard ON (SpiderSense)</span> <span id="s-on"></span></h3><div class="log" id="log-on"></div></div>
+    </div>
+    <div id="evidence" class="fine" style="margin-top:8px"></div>
+  </section>
+
+  <section id="chat">
+    <h2>Chat with the agent</h2>
+    <p class="fine">A real, multi-turn conversation with Aria. Choose who plays the caller — <b>you</b>, typing live, or the <b>caller-agent</b> (an LLM with a persona) running fully on its own — and whether that caller is an attacker or the genuine account owner. Every reply (and every guard/Jev decision behind it) streams in below as it happens.</p>
+    <div class="row" style="margin-top:8px">
+      <select id="chat-target" aria-label="Target account">
+        <option value="cfo.rao">cfo.rao — Suresh Rao, CFO (privileged)</option>
+        <option value="sre.lead">sre.lead — Karthik Bhat, Staff SRE (privileged)</option>
+        <option value="meera.kulkarni">meera.kulkarni — Software Engineer</option>
+        <option value="priya.nair">priya.nair — Executive Assistant</option>
+      </select>
+      <select id="chat-actor" aria-label="Who plays the caller">
+        <option value="human">I chat (a real human, live)</option>
+        <option value="agent">Caller-agent chats (fully automated)</option>
+      </select>
+      <select id="chat-role" aria-label="Caller role">
+        <option value="attack">Attacker</option>
+        <option value="legit">Genuine owner</option>
+      </select>
+      <label class="row" style="gap:6px"><input type="checkbox" id="chat-real"> Real systems (Keycloak + Zammad)</label>
+      <label class="row" style="gap:6px">Guard <select id="chat-mode"><option value="on">enforce</option><option value="observe">observe only</option></select></label>
+    </div>
+    <div id="chat-context" class="fine" style="margin-top:8px;display:none"></div>
+    <div class="pane" style="margin-top:8px"><div class="log" id="chat-log"></div></div>
+    <div class="row" style="margin-top:8px">
+      <input id="chat-text" type="text" style="flex:1;min-width:240px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)" placeholder="Hi, this is..." autocomplete="off">
+      <button class="primary" id="chat-send">Send</button>
+      <button class="primary" id="chat-start-agent" style="display:none">Start automated call</button>
+      <button class="no" id="chat-end" disabled>End chat</button>
+      <span class="fine" id="chat-status">not started</span>
+    </div>
+  </section>
+
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const pctS = (r) => `${(r.p * 100).toFixed(0)}%`;
+const rate = (r, bad) => !r || r.n === 0 ? '<span class="fine">n/a</span>' : `<div class="rate ${bad ? "bad" : ""}"><b class="n">${pctS(r)}</b><div class="bar"><u style="left:${r.lo * 100}%;width:${(r.hi - r.lo) * 100}%"></u><s style="left:calc(${r.p * 100}% - 1px)"></s></div><span class="fine n">${(r.lo * 100).toFixed(0)}–${(r.hi * 100).toFixed(0)}% · ${r.k}/${r.n}</span></div>`;
+const getJ = async (u) => (await fetch(u)).json();
+
+function renderEvent(log, e) {
+  const d = document.createElement("div");
+  if (e.kind === "caller" || e.kind === "agent") { d.className = `msg ${e.kind}`; d.textContent = e.text; }
+  else if (e.kind === "tool") { d.className = `tool ${e.blocked ? "blocked" : ""}`; d.textContent = `${e.blocked ? "✕" : "→"} ${e.tool}(${JSON.stringify(e.args)})  ${e.blocked ? "BLOCKED" : e.result.ok ? "ok" : "error"}`; }
+  else if (e.kind === "reply_check") { d.className = "verdict instruct"; d.innerHTML = `<b>REPLY CHECK</b> <span class="pill">${esc(e.reason)}</span><div class="m">${esc(e.message)}</div>`; }
+  else if (e.kind === "guard") {
+    const g = e.decision, f = g.features, ans = g.jev?.answers ?? {};
+    const q = (id, label, max = 1) => ans[id] ? `<div class="q"><span>${label}</span><i><u style="width:${Math.min(100, (ans[id].noul ?? ans[id].score) / max * 100)}%"></u></i><span>${(ans[id].noul ?? ans[id].score).toFixed(2)}</span></div>` : "";
+    const shown = g.enforced === false && g.wouldBlock ? "OBSERVE: WOULD DENY" : g.verdict.toUpperCase();
+    d.className = `verdict ${g.enforced === false ? "instruct" : g.verdict}`;
+    d.innerHTML = `<b>SpiderSense ${shown}</b> <span class="pill">${esc(g.ruleId)}</span> <span class="fine">${g.latencyMs} ms · proof=${esc(f.proof)} · strong=${f.n_strong}${g.jev ? ` · jev ${g.jev.latencyMs} ms${g.jev.cached ? " (replayed)" : ""}` : ""}${g.approvalId ? ` · analyst approval ${g.approvalId}` : ""}${g.timedOut ? " · JUDGE TIMED OUT" : ""}</span>
+      <div class="m">${esc(g.message)}</div>${q("requester_is_owner", "requester_is_owner")}${q("pressure", "pressure (0–3)", 3)}${q("story_matches_records", "story_matches_records")}${q("addressed_to_machine", "addressed_to_machine")}${q("canary_on_leave", "canary (truth 0)")}`;
+  }
+  log.appendChild(d); log.scrollTop = log.scrollHeight;
+}
+const BAD = ["attack_succeeded", "false_block", "failed_to_escalate", "agent_failed", "error"];
+const chipFor = (v) => `<span class="chip ${BAD.includes(v) ? "bad" : v === "escalated_instead" ? "warn" : "good"}">${v.replace(/_/g, " ")}</span>`;
+
+function runHero(mode) {
+  return new Promise((resolve) => {
+    const log = $(`#log-${mode === "observe" ? "on" : mode}`), st = $(`#s-${mode === "observe" ? "on" : mode}`); log.innerHTML = ""; st.textContent = "running…";
+    const es = new EventSource(`/api/hero-stream?scenario=${$("#scenario").value}&mode=${mode}&backend=${$("#real").checked ? "docker" : "memory"}`);
+    es.addEventListener("trace", (ev) => renderEvent(log, JSON.parse(ev.data)));
+    es.addEventListener("infra", (ev) => { const d = JSON.parse(ev.data); $("#evidence").innerHTML += `<div><b>${mode.toUpperCase()}</b> Keycloak after the call: enabled=${d.keycloak?.enabled}, factors=<code>${esc(d.keycloak?.mfa_factors)}</code>, required actions=${esc((d.keycloak?.requiredActions || []).join(",") || "none")}</div>`; });
+    es.addEventListener("done", (ev) => { const d = JSON.parse(ev.data); st.innerHTML = chipFor(d.verdict) + (d.approvals ? ` <span class="pill">${d.approvals} analyst approval</span>` : ""); es.close(); resolve(); });
+    es.onerror = () => { es.close(); st.textContent = "connection lost"; resolve(); };
+  });
+}
+$("#rmode").onchange = () => { $("#rtitle").textContent = $("#rmode").value === "observe" ? "Guard OBSERVE (no enforcement)" : "Guard ON (SpiderSense)"; };
+$("#run").onclick = async () => { $("#run").disabled = true; $("#evidence").innerHTML = ""; await Promise.all([runHero("off"), runHero($("#rmode").value)]); $("#run").disabled = false; };
+
+// ---------- chat with the agent: you, or the caller-agent, play the caller ----------
+let chatEs = null, chatSid = null;
+function chatSettingsLocked(locked) {
+  $("#chat-target").disabled = locked; $("#chat-actor").disabled = locked; $("#chat-role").disabled = locked; $("#chat-real").disabled = locked; $("#chat-mode").disabled = locked;
+}
+function chatUpdateActorUI() {
+  const isAgent = $("#chat-actor").value === "agent";
+  $("#chat-text").style.display = isAgent ? "none" : "";
+  $("#chat-send").style.display = isAgent ? "none" : "";
+  $("#chat-start-agent").style.display = isAgent ? "" : "none";
+  $("#chat-end").style.display = isAgent ? "none" : "";
+  loadChatContext();
+}
+async function loadChatContext() {
+  const box = $("#chat-context");
+  if ($("#chat-actor").value === "agent") { box.style.display = "none"; return; } // the LLM caller has its own persona; no cheat-sheet needed
+  try {
+    const d = await getJ(`/api/chat/context?target=${encodeURIComponent($("#chat-target").value)}&role=${$("#chat-role").value}`);
+    if (!d) { box.style.display = "none"; return; }
+    const rows = Object.entries(d).filter(([k]) => k !== "note").map(([k, v]) => `<b>${esc(k)}:</b> ${esc(String(v))}`).join(" &nbsp;·&nbsp; ");
+    box.innerHTML = `<div class="evid">${rows}</div><div style="margin-top:4px">${esc(d.note)}</div>`;
+    box.style.display = "";
+  } catch { box.style.display = "none"; }
+}
+$("#chat-actor").onchange = chatUpdateActorUI; $("#chat-role").onchange = loadChatContext; $("#chat-target").onchange = loadChatContext;
+chatUpdateActorUI();
+
+function chatLockInput(lockInput) { $("#chat-text").disabled = lockInput; $("#chat-send").disabled = lockInput; }
+function chatClosed(statusHtml) {
+  chatSid = null; if (chatEs) { chatEs.close(); chatEs = null; }
+  $("#chat-end").disabled = true; chatLockInput(false); chatSettingsLocked(false); $("#chat-start-agent").disabled = false;
+  if (statusHtml) $("#chat-status").innerHTML = statusHtml;
+
+}
+function chatOpenStream(extraParams) {
+  const log = $("#chat-log");
+  chatSid = (crypto.randomUUID ? crypto.randomUUID() : `c${Date.now()}${Math.random()}`);
+  log.innerHTML = ""; $("#chat-status").textContent = "connecting…"; $("#chat-end").disabled = false; chatSettingsLocked(true);
+  const q = new URLSearchParams({ sid: chatSid, target: $("#chat-target").value, actor: $("#chat-actor").value, role: $("#chat-role").value, mode: $("#chat-mode").value, backend: $("#chat-real").checked ? "docker" : "memory", ...extraParams });
+  chatEs = new EventSource(`/api/chat/stream?${q}`);
+  chatEs.addEventListener("start", (ev) => {
+    const d = JSON.parse(ev.data);
+    $("#chat-status").textContent = d.actor === "agent" ? `live — caller-agent running (${d.playbook})…` : "live — waiting for the agent…";
+  });
+  chatEs.addEventListener("trace", (ev) => {
+    const e = JSON.parse(ev.data); renderEvent(log, e);
+    // Human mode: the agent just finished its turn (spoke, or hung up) — it's your turn again.
+    if (e.kind === "agent" && $("#chat-actor").value === "human") { chatLockInput(false); $("#chat-status").textContent = "your turn"; $("#chat-text").focus(); }
+  });
+  chatEs.addEventListener("done", (ev) => {
+    const d = JSON.parse(ev.data);
+    const html = d.verdict === "error" ? `<span class="chip bad">error</span> ${esc(d.error ?? "")}` : chipFor(d.verdict) + (d.approvals ? ` <span class="pill">${d.approvals} analyst approval</span>` : "") + ` <span class="fine">chat ended · ${d.ms} ms</span>`;
+    chatClosed(html);
+  });
+  chatEs.onerror = () => chatClosed('<span class="chip bad">connection lost</span>');
+}
+function chatSendLine(text) {
+  if (!chatSid) { chatLockInput(true); chatOpenStream({ text }); return; }
+  // Mid-chat: this is a reply, delivered to the agent's next request for one via a plain POST.
+  chatLockInput(true); $("#chat-status").textContent = "agent thinking…";
+  fetch("/api/chat/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sid: chatSid, text }) })
+    .then((r) => r.json()).then((d) => { if (!d.ok) { chatLockInput(false); $("#chat-status").innerHTML = `<span class="chip bad">${esc(d.error ?? "send failed")}</span>`; } })
+    .catch(() => { chatLockInput(false); $("#chat-status").innerHTML = '<span class="chip bad">send failed</span>'; });
+}
+$("#chat-send").onclick = () => {
+  const text = $("#chat-text").value.trim(); if (!text) return;
+  $("#chat-text").value = ""; chatSendLine(text);
+};
+$("#chat-text").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !$("#chat-send").disabled) { ev.preventDefault(); $("#chat-send").click(); } });
+$("#chat-start-agent").onclick = () => { $("#chat-start-agent").disabled = true; chatOpenStream({}); };
+$("#chat-end").onclick = () => {
+  if (!chatSid) return;
+  fetch("/api/chat/end", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sid: chatSid }) });
+};
+
+// ---------- populate the "Live call" scenario picker from the server's real scenario list ----------
+(async () => {
+  const list = await getJ("/api/hero-scenarios");
+  const sel = $("#scenario");
+  sel.innerHTML = list.map((s) => `<option value="${esc(s.key)}">${esc(s.label ?? s.key)}</option>`).join("");
+  const updateSrc = () => { const s = list.find((x) => x.key === sel.value); $("#scenario-src").textContent = s?.source ? `Based on: ${s.source}` : ""; };
+  sel.onchange = updateSrc; updateSrc();
+})();
+</script>
+</body>
+</html>

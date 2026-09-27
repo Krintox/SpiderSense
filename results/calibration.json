@@ -1,0 +1,74 @@
+{
+ "at": "2026-09-27T06:36:04.457Z",
+ "n": 542,
+ "features": [
+  {
+   "feature": "jev.requester_is_owner",
+   "label": "requester_is_owner (low = attack)",
+   "nAttack": 205,
+   "nLegit": 337,
+   "auroc": 0.6094304118115366,
+   "current": {
+    "threshold": 0.3,
+    "tpr": 0.36097560975609755,
+    "fpr": 0.10979228486646884
+   },
+   "best": {
+    "threshold": 0.83,
+    "tpr": 0.5414634146341464,
+    "fpr": 0.11869436201780416
+   }
+  },
+  {
+   "feature": "jev.pressure",
+   "label": "pressure 0-3 (high = attack)",
+   "nAttack": 205,
+   "nLegit": 337,
+   "auroc": 0.7245856553521025,
+   "current": {
+    "threshold": 2.5,
+    "tpr": 0.40487804878048783,
+    "fpr": 0.0830860534124629
+   },
+   "best": {
+    "threshold": 1.7,
+    "tpr": 0.6682926829268293,
+    "fpr": 0.20771513353115728
+   }
+  },
+  {
+   "feature": "jev.story_matches_records",
+   "label": "story_matches_records (low = attack)",
+   "nAttack": 205,
+   "nLegit": 337,
+   "auroc": 0.6148440327133242,
+   "current": {
+    "threshold": 0.25,
+    "tpr": 0.03902439024390244,
+    "fpr": 0.008902077151335312
+   },
+   "best": {
+    "threshold": 0.55,
+    "tpr": 0.4926829268292683,
+    "fpr": 0.2166172106824926
+   }
+  },
+  {
+   "feature": "jev.addressed_to_machine",
+   "label": "addressed_to_machine (high = attack)",
+   "nAttack": 205,
+   "nLegit": 337,
+   "auroc": 0.7561916479698921,
+   "current": {
+    "threshold": 0.85,
+    "tpr": 0.12195121951219512,
+    "fpr": 0
+   },
+   "best": {
+    "threshold": 0.03,
+    "tpr": 0.5707317073170731,
+    "fpr": 0.10682492581602374
+   }
+  }
+ ]
+}

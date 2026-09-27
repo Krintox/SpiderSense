@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.*
+!.env.example
+
+# LLM/Jev response cache (disk cache; regenerable, keyed by request hash)
+.cache/
+
+# Playwright MCP screenshots/console logs left over from manual verification
+.playwright-mcp/

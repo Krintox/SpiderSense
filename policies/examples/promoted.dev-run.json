@@ -1,0 +1,21 @@
+[
+  {
+    "id": "manager-attested-new-device",
+    "description": "Deny requests relying solely on manager attestation under a new device pretext.",
+    "when": [
+      {
+        "f": "proof",
+        "op": "==",
+        "v": "manager_attested"
+      },
+      {
+        "f": "jev.pretext",
+        "op": "==",
+        "v": "new_device"
+      }
+    ],
+    "verdict": "deny",
+    "message": "Manager attestation cannot be used for new device onboarding. Require the employee to verify via an enrolled strong factor or direct out-of-band identity proofing.",
+    "source": "promoted"
+  }
+]

@@ -1,0 +1,14 @@
+import { KeycloakAdmin, KeycloakBackend, ensureRealm } from "../enterprise/keycloak.js";
+import { Enterprise } from "../enterprise/enterprise.js";
+const kc = new KeycloakAdmin();
+console.log("alive", await kc.alive());
+const t0 = Date.now(); console.log(await ensureRealm(kc, "northwind-test"), `${Date.now() - t0}ms`);
+const be = new KeycloakBackend(kc, "northwind-test"); const ent = new Enterprise(42); ent.openSession("s");
+console.log("before", await be.snapshot("cfo.rao"));
+await be.refresh("cfo.rao", ent); console.log("refreshed privileged:", ent.employees.get("cfo.rao")!.privileged, "factors:", ent.employees.get("cfo.rao")!.factors.length);
+await be.apply({ tool: "reset_mfa", args: { username: "cfo.rao" } }, { ok: true }, ent);
+await be.apply({ tool: "enroll_factor", args: { username: "cfo.rao", type: "sms", value: "+91 90000 11111" } }, { ok: true }, ent);
+await be.apply({ tool: "lock_account", args: { username: "cfo.rao" } }, { ok: true }, ent);
+console.log("after ", await be.snapshot("cfo.rao"));
+console.log("admin events:", (await be.adminEvents(6)).map((e) => `${e.op} ${e.path}`));
+await be.reset(); console.log("reset", await be.snapshot("cfo.rao"));

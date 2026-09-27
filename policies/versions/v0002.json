@@ -1,0 +1,82 @@
+{
+  "version": 2,
+  "createdAt": "2026-09-26T23:15:29.449Z",
+  "parent": 1,
+  "note": "mined: recent-phone-change-weak-proof",
+  "rules": [
+    {
+      "id": "recent-phone-change-weak-proof",
+      "description": "Deny requests on accounts with recent phone number changes when relying on phone callbacks or lacking identity proof.",
+      "when": [
+        {
+          "f": "phone_changed_days",
+          "op": "<=",
+          "v": 14
+        },
+        {
+          "f": "proof",
+          "op": "in",
+          "v": [
+            "callback_record_phone",
+            "none"
+          ]
+        }
+      ],
+      "verdict": "deny",
+      "message": "Detected a sensitive request on an account with a phone number changed within the past 14 days without strong possession proof. Require in-person verification or manager attestation before proceeding.",
+      "source": "promoted"
+    },
+    {
+      "id": "sim-swap-callback-low-story",
+      "description": "Block SIM‑swap attempts using callback proof with low story match.",
+      "when": [
+        {
+          "f": "proof",
+          "op": "==",
+          "v": "callback_record_phone"
+        },
+        {
+          "f": "phone_changed_days",
+          "op": "<",
+          "v": 30
+        },
+        {
+          "f": "jev.story_matches_records",
+          "op": "<",
+          "v": 0.7
+        },
+        {
+          "f": "jev.requester_is_owner",
+          "op": ">",
+          "v": 0.85
+        }
+      ],
+      "verdict": "deny",
+      "message": "A recent phone change with callback proof but low story match indicates a possible SIM‑swap. Deny the request and alert security.",
+      "source": "promoted"
+    }
+  ],
+  "meta": {
+    "backtest": {
+      "attackAllowedBefore": 1,
+      "attackAllowedAfter": 0,
+      "flips": 1,
+      "legitNewDenials": 0,
+      "legitNewDenialCases": [],
+      "rows": 30
+    },
+    "sham": {
+      "coverage": 10,
+      "candidateFlips": 1,
+      "shamTrials": 400,
+      "shamSuccesses": 1,
+      "pValue": 0.004987531172069825
+    },
+    "clusters": {
+      "sim_swap_callback_approved / pretext=new_device": 1,
+      "sim_swap_callback_approved / pretext=other": 1,
+      "lost_phone_new_number / pretext=lost_device": 2,
+      "weaponized_lockout / pretext=it_impersonation": 3
+    }
+  }
+}

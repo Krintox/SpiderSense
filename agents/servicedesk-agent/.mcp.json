@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "northwind-idp-helpdesk": {
+      "command": "node",
+      "args": ["server.mjs"]
+    }
+  }
+}

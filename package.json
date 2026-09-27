@@ -1,0 +1,41 @@
+{
+  "name": "spidersense",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Account-recovery control plane for AI service-desk agents. Jev Buildathon 2026-09-27.",
+  "scripts": {
+    "test": "tsx --test --test-reporter=spec tests/guard.test.ts tests/stats.test.ts tests/facade.test.ts tests/features.test.ts tests/docker.test.ts tests/guard-server.test.ts tests/cases.test.ts tests/agent-loop.test.ts tests/miner.test.ts tests/clients.test.ts tests/scoreboard-api.test.ts tests/failproof-adapter.test.ts",
+    "typecheck": "tsc --noEmit",
+    "smoke:llm": "tsx src/cli/smoke-llm.ts",
+    "smoke:jev": "tsx src/cli/smoke-jev.ts",
+    "hero": "tsx src/cli/hero.ts",
+    "eval": "tsx src/cli/eval.ts",
+    "one": "tsx src/cli/one.ts",
+    "mine": "tsx src/cli/mine.ts",
+    "serve": "tsx src/scoreboard/server.ts",
+    "mcp": "tsx src/enterprise/mcp-server.ts",
+    "guard-server": "tsx src/guard/server.ts",
+    "http-facade": "tsx src/enterprise/http-facade.ts",
+    "infra:setup": "tsx src/cli/infra-setup.ts",
+    "docker:hero": "tsx src/cli/docker-hero.ts",
+    "policy": "tsx src/cli/policy.ts",
+    "loop": "tsx src/cli/loop.ts",
+    "calibrate": "tsx src/cli/calibrate.ts",
+    "sensitivity": "tsx src/cli/jev-sensitivity.ts",
+    "case-study-60": "tsx src/cli/case-study-60.ts",
+    "prompts:build": "tsx src/corpus/build-prompts-csv.ts",
+    "agent:servicedesk": "node agents/servicedesk-agent/server.mjs",
+    "agent:caller": "tsx src/cli/agent-caller.ts",
+    "agent:miner": "tsx src/cli/mine.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
